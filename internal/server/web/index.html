@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>yap</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>💬</text></svg>">
+</head>
+<body>
+
+<div class="app" id="app" data-view="list">
+
+  <!-- Rail: who you are, what the radio sees, and every conversation. -->
+  <aside class="rail">
+    <div class="me">
+      <div class="me-top">
+        <span class="brand"><span class="mark"></span>yap</span>
+        <input class="me-name" id="my-name" placeholder="Set your name" maxlength="64" aria-label="Your display name">
+        <button class="icon-btn" id="theme-toggle" title="Switch theme" aria-label="Switch theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>
+          </svg>
+        </button>
+      </div>
+
+      <button class="address" id="my-address" title="Copy your address">
+        <code id="my-address-text">…</code>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13" style="flex:0 0 auto">
+          <rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Telemetry. No other messenger can show this, because no other
+         messenger is the network. -->
+    <div class="airspace" id="airspace">
+      <div class="gauge idle"><b id="g-peers">0</b><span>in range</span></div>
+      <div class="gauge idle"><b id="g-links">0</b><span>links</span></div>
+      <div class="gauge idle"><b id="g-pending">0</b><span>waiting</span></div>
+      <div class="gauge idle"><b id="g-carrying">0</b><span>relaying</span></div>
+    </div>
+
+    <div class="rail-head">
+      <span class="eyebrow">Conversations</span>
+      <button class="icon-btn" id="add-contact" title="Add someone by address" aria-label="Add someone by address">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="chats" id="chats"></div>
+  </aside>
+
+  <!-- Thread -->
+  <main class="thread" id="thread">
+    <div class="blank" id="blank">
+      <div class="blank-inner">
+        <div class="big">No conversation open</div>
+        <p>yap carries messages over Bluetooth. There is no server and no internet — a message travels to the people near you, and onward through them.</p>
+        <p>Give someone your address and they can reach you. Add theirs to start.</p>
+        <div class="note">Messages to someone out of range wait in your outbox and go out the moment they are nearby.</div>
+      </div>
+    </div>
+
+    <div class="thread-head" id="thread-head" hidden>
+      <button class="icon-btn back" id="back" aria-label="Back to conversations">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <div class="range" id="head-range" data-level="0" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="who">
+        <h1 id="head-title">…</h1>
+        <div class="sub" id="head-sub"></div>
+      </div>
+    </div>
+
+    <div class="messages" id="messages" hidden></div>
+
+    <div class="attach-preview" id="attach-preview" hidden>
+      <img id="attach-thumb" alt="" hidden>
+      <span id="attach-name"></span>
+      <button class="icon-btn" id="attach-clear" aria-label="Remove attachment">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <form class="composer" id="composer" hidden>
+      <input type="file" id="file" hidden accept="image/*,application/pdf,text/*">
+      <button type="button" class="icon-btn" id="attach" title="Attach a file" aria-label="Attach a file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+          <path d="M21 11.5l-8.6 8.6a5 5 0 0 1-7-7l8.5-8.6a3.4 3.4 0 0 1 4.8 4.8l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.9-7.9"/>
+        </svg>
+      </button>
+      <textarea id="input" rows="1" placeholder="Write a message" maxlength="8000"></textarea>
+      <button class="send" id="send" type="submit" disabled aria-label="Send">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3.4 20.4l17.5-7.5a1 1 0 0 0 0-1.84L3.4 3.6a.98.98 0 0 0-1.37.9L2.02 9.6c0 .5.37.93.87 1l12.1 1.4-12.1 1.4c-.5.06-.87.5-.87 1l.01 5.1c0 .72.73 1.2 1.37.9z"/>
+        </svg>
+      </button>
+    </form>
+  </main>
+</div>
+
+<dialog id="sheet">
+  <form method="dialog">
+    <div class="sheet-head"><h2>Add someone</h2></div>
+    <div class="sheet-body">
+      <p>Paste the address they gave you. It is their public key, so nobody else can claim it — and it is what encrypts everything you send.</p>
+      <label class="eyebrow" for="add-address">Address</label>
+      <input class="mono" id="add-address" placeholder="yap:0abcd-efghj-…" autocomplete="off" spellcheck="false">
+      <label class="eyebrow" for="add-name">Name (optional)</label>
+      <input id="add-name" placeholder="What you want to call them" maxlength="64" autocomplete="off">
+      <div class="error" id="add-error"></div>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn" value="cancel" type="submit">Cancel</button>
+      <button class="btn primary" id="add-save" type="button">Add</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="lightbox" id="lightbox"><img id="lightbox-img" alt=""></div>
+<div class="toast" id="toast"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
