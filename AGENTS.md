@@ -44,6 +44,19 @@ hint and a display name. The key it carries is proven when a handshake with that
 key succeeds — never before. `handleAnnounce` checks that the announced key
 hashes to the source it arrived from; do not remove that.
 
+**Discovery is automatic and must stay that way.** `watchPeers` records every
+peer the radio hears as a contact. Nobody should have to type the address of
+somebody standing next to them; the announce already carries the key and the
+name. It deliberately does *not* create a chat row — being in the room is not a
+conversation, and a busy floor would bury the real threads.
+
+**The outbox resumes on start.** `App.resume()` re-queues everything still
+`queued` or `sent`. Without it the product's central promise silently fails:
+the message is durable in SQLite but nothing ever puts it back on the air, so
+quitting yap abandons it. Ids are preserved so a recipient who already got it
+dedupes the repeat. This was shipped broken once — `store.Undelivered()` existed
+and was tested but had no callers.
+
 **Dedupe before anything else.** `handlePacket` marks the message id first. Skip
 it and a room of n mutually visible peers turns one message into O(n²) frames.
 
@@ -116,4 +129,6 @@ silently un-hides things. hehe shipped that bug once.
   tested; the radio itself has only been proven to advertise without crashing.
 - Group chats. The store has a `kind` column for it and nothing else exists.
 - Linux radio, via BlueZ, which supports both roles natively.
-- No test covers `internal/app` or `internal/server` directly.
+- `internal/server` has no direct tests; `internal/app` now does.
+- Contacts accumulate for everyone you ever walk past. Bounded in the UI (only
+  online peers show under "Nearby now") but never pruned on disk.

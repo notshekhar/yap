@@ -98,6 +98,7 @@ func (s *Server) routes() {
 
 	s.mux.HandleFunc("POST /api/send", s.handleSend)
 	s.mux.HandleFunc("POST /api/contacts", s.handleAddContact)
+	s.mux.HandleFunc("POST /api/chats", s.handleOpenChat)
 	s.mux.HandleFunc("POST /api/read", s.handleRead)
 	s.mux.HandleFunc("POST /api/typing", s.handleTyping)
 	s.mux.HandleFunc("POST /api/profile", s.handleProfile)
@@ -342,6 +343,34 @@ func (s *Server) handleAddContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"contact": contact})
+}
+
+// handleOpenChat gives a discovered peer a conversation to live in. The
+// contact already exists — the radio heard them — so this only creates the
+// thread the first time you decide to say something.
+func (s *Server) handleOpenChat(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Chat string `json:"chat"`
+	}
+	if err := decode(r, &req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	contact, err := s.app.Store().Contact(req.Chat)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	if contact == nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "no such contact"})
+		return
+	}
+	if err := s.app.Store().EnsureChat(contact.NodeID, "direct", contact.Name); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (s *Server) handleRead(w http.ResponseWriter, r *http.Request) {

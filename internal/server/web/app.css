@@ -154,6 +154,31 @@ button { background: none; border: 0; cursor: pointer; }
 .gauge.live b { color: var(--accent); }
 .gauge.wait b { color: var(--warn); }
 
+/* People in range with no conversation yet. Kept visually lighter than the
+ * chat list: they are a possibility, not a thread. */
+.nearby { border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.nearby .rail-head { padding-bottom: 5px; }
+
+.near-row {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center;
+  width: 100%; padding: 7px 14px; text-align: left;
+}
+.near-row:hover { background: var(--bg-hover); }
+.near-row .who { min-width: 0; }
+.near-row b {
+  display: block; font-size: .84rem; font-weight: 600; letter-spacing: -0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.near-row small {
+  display: block; font-family: var(--mono); font-size: .6rem; color: var(--fg-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.near-row .go {
+  font-family: var(--mono); font-size: .58rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--fg-faint);
+}
+.near-row:hover .go { color: var(--accent); }
+
 /* --------------------------------------------------------------- chat list */
 
 .rail-head { display: flex; align-items: center; gap: 8px; padding: 14px 14px 7px; }

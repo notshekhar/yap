@@ -111,12 +111,17 @@ func New(node *mesh.Node, st *store.Store, log *slog.Logger) *App {
 	}
 }
 
-// Start begins consuming mesh traffic.
+// Start begins consuming mesh traffic and re-queues anything left over from
+// the last run.
 func (a *App) Start(ctx context.Context) {
 	a.wg.Add(3)
 	go a.consumeInbound()
 	go a.consumeDeliveries()
 	go a.watchPeers()
+
+	// After the consumers, so a delivery receipt for a resumed message has
+	// somewhere to land.
+	a.resume()
 }
 
 // Close stops the application.
@@ -278,26 +283,116 @@ func (a *App) send(to identity.PublicKey, env envelope, blob []byte) (*store.Mes
 	}
 
 	// The message is durable before it is transmitted, so a crash between the
-	// two loses nothing and the retry loop can pick it up.
+	// two loses nothing: resume() picks it up on the next start.
 	a.publish(Event{Type: "message", Chat: chatID, Message: msg})
 
+	if err := a.transmit(to, env, id, chatID); err != nil {
+		return msg, err
+	}
+	msg.State = store.StateSent
+	return msg, nil
+}
+
+// transmit puts one message on the mesh and registers it for delivery
+// tracking. Both a fresh send and a resume after restart go through here, so
+// there is one place that decides what "sent" means.
+func (a *App) transmit(to identity.PublicKey, env envelope, msgID, chatID string) error {
 	payload, err := json.Marshal(env)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	ref := "m:" + id
+	ref := "m:" + msgID
 	a.mu.Lock()
-	a.pending[ref] = id
+	a.pending[ref] = msgID
 	a.mu.Unlock()
 
 	if err := a.node.Send(to, payload, ref); err != nil {
-		a.setState(id, chatID, store.StateFailed)
-		return msg, err
+		// Drop the tracking entry too, or a message that never left holds a
+		// slot in the map for the life of the process.
+		a.mu.Lock()
+		delete(a.pending, ref)
+		a.mu.Unlock()
+
+		a.setState(msgID, chatID, store.StateFailed)
+		return err
 	}
-	a.setState(id, chatID, store.StateSent)
-	msg.State = store.StateSent
-	return msg, nil
+	a.setState(msgID, chatID, store.StateSent)
+	return nil
+}
+
+// envelopeFor rebuilds the wire form of a stored message, reloading any
+// attachment from the blob store.
+func (a *App) envelopeFor(m *store.Message) (envelope, error) {
+	env := envelope{
+		T:       kindMessage,
+		ID:      m.ID,
+		Kind:    m.Kind,
+		Body:    m.Body,
+		TS:      m.CreatedAt,
+		ReplyTo: m.ReplyTo,
+	}
+	if m.BlobID == "" {
+		return env, nil
+	}
+
+	mime, name, data, err := a.store.Blob(m.BlobID)
+	if err != nil {
+		return env, err
+	}
+	if data == nil {
+		// The row survived but its attachment did not. Send the caption rather
+		// than nothing, so the conversation is not silently missing a turn.
+		a.log.Warn("attachment is missing, sending without it", "message", m.ID)
+		return env, nil
+	}
+	env.Mime, env.Name = mime, name
+	env.Data = base64.StdEncoding.EncodeToString(data)
+	return env, nil
+}
+
+// resume re-queues everything that was still waiting when we last stopped.
+//
+// Without this the product's central promise quietly fails: a message to
+// someone out of range is durable in the database, but nothing would ever put
+// it back on the air, so quitting yap would abandon it. Message ids are
+// preserved, so a recipient who did receive it the first time discards the
+// repeat as a duplicate.
+func (a *App) resume() {
+	msgs, err := a.store.Undelivered()
+	if err != nil {
+		a.log.Error("could not read the outbox", "err", err)
+		return
+	}
+	if len(msgs) == 0 {
+		return
+	}
+
+	resumed := 0
+	for _, m := range msgs {
+		contact, err := a.store.Contact(m.ChatID)
+		if err != nil || contact == nil {
+			// Nothing to address it to. Mark it failed rather than leaving it
+			// to be reconsidered on every start for ever.
+			a.setState(m.ID, m.ChatID, store.StateFailed)
+			continue
+		}
+
+		env, err := a.envelopeFor(m)
+		if err != nil {
+			a.log.Error("could not rebuild a queued message", "message", m.ID, "err", err)
+			continue
+		}
+		if err := a.transmit(contact.Key, env, m.ID, m.ChatID); err != nil {
+			a.log.Debug("queued message still cannot go out", "message", m.ID, "err", err)
+			continue
+		}
+		resumed++
+	}
+
+	if resumed > 0 {
+		a.log.Info("put queued messages back on the air", "count", resumed)
+	}
 }
 
 // sendEnvelope sends a control message, which has no local record.
@@ -586,15 +681,25 @@ func (a *App) watchPeers() {
 		case <-tick.C:
 			peers := a.node.Peers()
 
-			// A peer announcing a name we do not have is how a stranger
-			// becomes a named contact without anyone typing an address.
+			// Anyone the radio can hear becomes a contact automatically. This
+			// is the point of a proximity messenger: you should not have to
+			// type an address for somebody standing next to you, and their
+			// announce already carries everything needed to reach them.
+			//
+			// The announce is unauthenticated, so a hostile node can claim a
+			// key it does not hold and appear in this list. That costs it
+			// nothing and gains it nothing: anything sent to that key is
+			// encrypted to the real holder, and the impostor cannot complete a
+			// handshake for it. A fake row is the whole of the attack.
+			//
+			// No chat row is created here. Being in the room is not a
+			// conversation, and manufacturing empty threads for everyone who
+			// walks past would bury the real ones.
 			var ids []string
 			for _, p := range peers {
 				ids = append(ids, p.NodeID().String())
-				if p.Name != "" {
-					if c, _ := a.store.Contact(p.NodeID().String()); c != nil && c.Name == "" {
-						a.store.SaveContact(p.Key, p.Name)
-					}
+				if err := a.store.SaveContact(p.Key, p.Name); err != nil {
+					a.log.Debug("could not record a nearby peer", "err", err)
 				}
 			}
 

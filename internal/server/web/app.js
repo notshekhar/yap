@@ -18,6 +18,7 @@ const el = {
   gPending: $("g-pending"), gCarrying: $("g-carrying"),
   airspace: $("airspace"),
   chats: $("chats"),
+  nearby: $("nearby"), nearbyList: $("nearby-list"),
   addContact: $("add-contact"),
   blank: $("blank"),
   head: $("thread-head"), headTitle: $("head-title"),
@@ -159,11 +160,33 @@ function renderAirspace(s) {
   set(el.gCarrying, s.carrying ?? 0);
 }
 
+// People in range we have no conversation with yet. They arrive by themselves:
+// the mesh announces presence, so a proximity messenger should never ask you to
+// type the address of somebody standing next to you.
+function renderNearby() {
+  const talking = new Set(state.chats.map((c) => c.id));
+  const strangers = state.contacts.filter(
+    (c) => state.peers[c.node_id] !== undefined && !talking.has(c.node_id) && !c.blocked);
+
+  el.nearby.hidden = strangers.length === 0;
+  if (!strangers.length) return;
+
+  el.nearbyList.innerHTML = strangers.map((c) => `
+    <button class="near-row" data-start="${esc(c.node_id)}">
+      <span class="range" data-level="${rangeLevel(c.node_id)}" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="who">
+        <b>${esc(c.name || c.address.replace(/^yap:/, "").slice(0, 11) + "…")}</b>
+        <small>${esc(rangeWords(c.node_id))}</small>
+      </span>
+      <span class="go">say hi</span>
+    </button>`).join("");
+}
+
 function renderChats() {
   if (!state.chats.length) {
     el.chats.innerHTML = `<div class="rail-empty">
-      <b>Nobody yet</b>
-      Add someone by their address, or wait for a node nearby to say hello.
+      <b>No conversations yet</b>
+      People running yap nearby show up above on their own. Someone further away can be added by their address.
     </div>`;
     return;
   }
@@ -256,6 +279,7 @@ async function loadState() {
   state.peers = s.nearby || {};
   renderMe();
   renderAirspace(s);
+  renderNearby();
   renderChats();
   renderThread();
 }
@@ -269,6 +293,7 @@ async function loadPeers() {
   state.peers = s.nearby || {};
   renderAirspace(s);
   if (JSON.stringify(state.peers) !== before) {
+    renderNearby();
     renderChats();
     renderThread();
   }
@@ -355,6 +380,21 @@ function connect() {
 el.chats.addEventListener("click", (e) => {
   const row = e.target.closest("[data-chat]");
   if (row) openChat(row.dataset.chat);
+});
+
+// Tapping someone nearby opens a thread with them. The contact already exists,
+// because the radio heard them; this only gives the conversation somewhere to
+// live.
+el.nearbyList.addEventListener("click", async (e) => {
+  const row = e.target.closest("[data-start]");
+  if (!row) return;
+  try {
+    await api("/api/chats", { chat: row.dataset.start });
+    await loadState();
+    openChat(row.dataset.start);
+  } catch (err) {
+    toast(err.message);
+  }
 });
 
 el.messages.addEventListener("click", async (e) => {

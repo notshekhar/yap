@@ -41,6 +41,13 @@
       <div class="gauge idle"><b id="g-carrying">0</b><span>relaying</span></div>
     </div>
 
+    <!-- People the radio can hear who you have not spoken to yet. They arrive
+         on their own; nobody types an address for someone standing nearby. -->
+    <div class="nearby" id="nearby" hidden>
+      <div class="rail-head"><span class="eyebrow">Nearby now</span></div>
+      <div id="nearby-list"></div>
+    </div>
+
     <div class="rail-head">
       <span class="eyebrow">Conversations</span>
       <button class="icon-btn" id="add-contact" title="Add someone by address" aria-label="Add someone by address">
@@ -59,7 +66,7 @@
       <div class="blank-inner">
         <div class="big">No conversation open</div>
         <p>yap carries messages over Bluetooth. There is no server and no internet — a message travels to the people near you, and onward through them.</p>
-        <p>Give someone your address and they can reach you. Add theirs to start.</p>
+        <p>People running yap near you appear by themselves — no address needed. Someone further away can be added by hand.</p>
         <div class="note">Messages to someone out of range wait in your outbox and go out the moment they are nearby.</div>
       </div>
     </div>

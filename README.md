@@ -12,6 +12,15 @@ go build -o yap ./cmd/yap && ./yap
 
 It opens <http://127.0.0.1:7474>.
 
+## Finding people
+
+You do not add anyone. Every node announces itself on the mesh, so people
+running yap near you appear in **Nearby now** by themselves, with the name they
+chose — that is what a proximity messenger is for. Tap one to start talking.
+
+Typing an address is the fallback, for reaching somebody who is *not* nearby.
+Their messages will sit in your outbox until the mesh can reach them.
+
 ## How it works
 
 Every node is both halves of Bluetooth Low Energy at once: it advertises a
@@ -26,8 +35,9 @@ peers we can already hear directly, so two people in one room do not involve the
 rest of the building.
 
 If nobody can reach the recipient right now, the message waits. Your own outbox
-retries it, and neighbours will carry it for you for a while, so a message can
-cross a building where the two ends are never present at the same time.
+retries it — across restarts, not just while the app is open — and neighbours
+will carry it for you for a while, so a message can cross a building where the
+two ends are never present at the same time.
 
 ## Identity and encryption
 
