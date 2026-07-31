@@ -7,10 +7,27 @@ to people near you — and onward through them to people near *them*. The device
 that relay a message cannot read it.
 
 ```
-go build -o yap ./cmd/yap && ./yap
+curl -fsSL https://raw.githubusercontent.com/notshekhar/yap/main/install.sh | bash
 ```
 
-It opens <http://127.0.0.1:7474>.
+Then run `yap`. It opens <http://127.0.0.1:7474>.
+
+The installer downloads one prebuilt binary for your machine from GitHub
+Releases and verifies its sha256. There is no toolchain to install first.
+
+| platform | |
+|---|---|
+| macOS | Apple Silicon, Intel — Bluetooth |
+| Linux | x64, arm64 — no radio yet, `-tcp` works |
+
+Update later by running it again. Uninstall with `install.sh --uninstall`; your
+identity and messages in `~/.yap` are left alone.
+
+From source instead:
+
+```
+go build -o yap ./cmd/yap && ./yap
+```
 
 ## Finding people
 
@@ -109,9 +126,8 @@ also how you run yap over Wi-Fi between two machines that cannot pair.
 |---|---|---|
 | macOS | yes | Bluetooth LE |
 | Linux | yes | not yet — BlueZ supports both roles, so this is a port not a rewrite |
-| Windows | yes | not yet |
 
-Everywhere without a radio, yap still runs and the TCP transport still works.
+Without a radio yap still runs, and the TCP transport still works.
 
 ## The macOS note
 
